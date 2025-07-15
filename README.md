@@ -592,7 +592,7 @@ HYBRID_CONFIG = {
 }
 ```
 
-## 💡 使用方法
+## 使用方法
 
 ### モデルの学習
 
@@ -948,7 +948,7 @@ OPTIMIZATION_SETTINGS = {
 - 📧 メール: masymyt@gmail.com
 - 🐛 問題報告: [GitHub Issues](https://github.com/Takato180/MTC-Bot/issues)
 
-## 🔮 ロードマップ
+## ロードマップ
 
 - [ ] 複数取引所対応（Binance、Coinbase等）
 - [ ] 高度なポートフォリオ最適化
@@ -957,11 +957,11 @@ OPTIMIZATION_SETTINGS = {
 - [ ] 高度なリスク管理ツール
 - [ ] DeFiプロトコル統合
 
-## 📄 ライセンス
+## ライセンス
 
 このプロジェクトはMITライセンスの下でライセンスされています。詳細は[LICENSE](LICENSE)ファイルをご覧ください。
 
-## 🙏 謝辞
+## 謝辞
 
 - **PatchTST**: Nie et al.による論文「A Time Series is Worth 64 Words: Long-term Forecasting with Transformers」に基づく
 - **PyTorch**: 深層学習フレームワーク
