@@ -1,0 +1,4 @@
+topic: kline_1m
+symbol: BTCUSDT
+interval: "1"
+testnet: false

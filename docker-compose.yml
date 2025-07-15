@@ -1,0 +1,41 @@
+# このファイルはRedpandaを使用してKafkaコンテナを起動するためのDocker Compose設定です。
+# サービス "kafka" はRedpandaイメージを基に作成され、必要なコマンドオプションが指定されています。
+# Kafkaは2つのポート（9092と19092）にバインドされ、内部および外部アドレスが設定されています。
+
+services:
+  kafka:
+    image: redpandadata/redpanda:v24.1.1
+    command:
+      # 起動コマンド
+      - redpanda
+      # サブコマンド: start (Redpandaの起動)
+      - start
+      # オプション: --smp (使用するCPUコア数)
+      - --smp
+      # 引数: "1" (CPUコア数を1に設定)
+      - "1"
+      # オプション: --memory (利用するメモリサイズ)
+      - --memory
+      # 引数: 1G (1ギガバイトのメモリ)
+      - 1G
+      # フラグ: --overprovisioned (リソースの過剰割り当てを許可)
+      - --overprovisioned
+      # オプション: --node-id (ノード識別ID)
+      - --node-id
+      # 引数: "0" (ノードIDを0に設定)
+      - "0"
+      # フラグと引数: --check=false (起動時チェックをスキップ)
+      - --check=false
+      # オプション: --kafka-addr (Kafkaのリスニングアドレス)
+      - --kafka-addr
+      # 引数: PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092 (内部と外部のアドレス指定)
+      - PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092
+      # オプション: --advertise-kafka-addr (ブローカーが広告するアドレス)
+      - --advertise-kafka-addr
+      # 引数: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092 (内部と外部の広告アドレス)
+      - PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+    ports:
+      # ポートマッピング: ホストの9092ポートをコンテナの9092ポートに接続
+      - "9092:9092"
+      # ポートマッピング: ホストの19092ポートをコンテナの19092ポートに接続
+      - "19092:19092"
