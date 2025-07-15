@@ -142,24 +142,48 @@ curl -sSL https://install.python-poetry.org | python3 -
 # 仮想環境の作成と依存関係のインストール
 poetry install
 
-# 仮想環境をアクティベート
-poetry shell
+# Poetry 2.0以降の仮想環境アクティベート方法
+# オプション1: poetry runで実行（推奨）
+poetry run python --version
+
+# オプション2: 手動でアクティベート（Windows）
+# \"C:\\path\\to\\project\\.venv\\Scripts\\activate\"
+# 確認コマンド
+poetry env activate
 ```
+
+⚠️ **Poetry 2.0以降の変更点**: `poetry shell`コマンドはデフォルトでは利用できません。`poetry run`または手動アクティベーションを使用してください。
 
 ### ステップ3: GPU環境の設定
 
 #### CUDA対応PyTorchのインストール
+
+⚠️ **RTX 5060 Ti/5070 Ti/5090 ユーザー重要通知**: RTX 50シリーズ（Blackwell）はCUDA Compute Capability sm_120を使用していますが、PyTorch安定版は未対応です。
+
+**RTX 50シリーズの場合（推奨）:**
 ```bash
-# CUDA 12.1対応のPyTorchをインストール
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# PyTorch nightly CUDA 12.8版（RTX 50シリーズ対応）
+pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128
 
 # インストール確認
 python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU count: {torch.cuda.device_count()}')"
 ```
 
+**RTX 40シリーズ以下の場合:**
+```bash
+# CUDA 12.1対応のPyTorchをインストール
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
 期待される出力：
 ```
-PyTorch: 2.1.2+cu121
+# RTX 50シリーズ
+PyTorch: 2.9.0.dev20250713+cu128
+CUDA available: True
+GPU count: 1
+
+# RTX 40シリーズ以下
+PyTorch: 2.5.1+cu121
 CUDA available: True
 GPU count: 1
 ```
@@ -171,7 +195,7 @@ GPU count: 1
 **前提条件**
 - Docker & Docker Compose
 - NVIDIA Container Toolkit
-- RTX 4060 Ti / RTX 5060 Ti + CUDA 12.1
+- RTX 4060 Ti / RTX 5060 Ti + CUDA 12.1/12.8
 
 ##### Docker Desktopのインストール
 1. [Docker Desktop](https://www.docker.com/products/docker-desktop/)をダウンロード・インストール
@@ -201,9 +225,15 @@ make down
 ```bash
 # Poetry環境構築（上記ステップ2,3を参照）
 poetry install
-poetry shell
 
-# GPU環境確認
+# 仮想環境の使用方法（以下から選択）
+# 方法1: poetry runで実行（推奨）
+poetry run python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPU: {torch.cuda.get_device_name(0)}')"
+
+# 方法2: 手動アクティベーション
+poetry env activate  # アクティベーションコマンドを表示
+# 表示されたコマンドを実行（例：PowerShell）
+& "C:\Users\masym\MTC-Bot\.venv\Scripts\activate.ps1"
 python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPU: {torch.cuda.get_device_name(0)}')"
 ```
 
@@ -246,33 +276,56 @@ MAX_TRADE_SIZE=100.0           # 最大取引サイズ（USD）
 ### ステップ6: 動作確認
 
 #### 基本的な動作テスト
+
+**Poetry使用時の注意**: Poetry 2.0以降では`poetry run`を使用します：
+
 ```bash
-# Pythonモジュールのインポートテスト
+# Poetry環境でPythonモジュールのインポートテスト
+poetry run python -c "
+import torch
+import pandas as pd
+import numpy as np
+from src.strategy_service.patchtst.model import PatchTSTConfig
+print('すべてのモジュールが正常にインポートされました')
+"
+
+# または仮想環境を手動アクティベート後に実行
 python -c "
 import torch
 import pandas as pd
 import numpy as np
 from src.strategy_service.patchtst.model import PatchTSTConfig
-print('✅ すべてのモジュールが正常にインポートされました')
+print('すべてのモジュールが正常にインポートされました')
 "
 ```
 
 #### GPU動作テスト
 ```bash
-# GPU使用可能性をテスト
-python -c "
+# GPU使用可能性をテスト（Poetry使用時）
+poetry run python -c "
 import torch
+import warnings
+warnings.filterwarnings('ignore')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'使用デバイス: {device}')
 if torch.cuda.is_available():
     print(f'GPU名: {torch.cuda.get_device_name(0)}')
     print(f'GPU メモリ: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB')
+    print(f'Compute Capability: {torch.cuda.get_device_capability(0)}')
+    # 簡単なGPU計算テスト
+    x = torch.randn(100, 100).to(device)
+    y = torch.randn(100, 100).to(device)
+    z = torch.matmul(x, y)
+    print('GPU計算テスト成功')
 "
 ```
 
 #### Kafka接続テスト
 ```bash
-# Kafka接続テスト
+# Kafka接続テスト（Poetry使用時）
+poetry run python tests/test_kafka_full.py
+
+# または仮想環境アクティベート後
 python tests/test_kafka_full.py
 ```
 
@@ -283,7 +336,10 @@ python tests/test_kafka_full.py
 まず、学習用の過去データを収集します：
 
 ```bash
-# 1年分のBTCUSDTの1時間足データを収集
+# 1年分のBTCUSDTの1時間足データを収集（Poetry使用時）
+poetry run python scripts/collect_data.py --symbol BTCUSDT --days 365 --interval 60
+
+# または仮想環境アクティベート後
 python scripts/collect_data.py --symbol BTCUSDT --days 365 --interval 60
 
 # データの確認
@@ -294,21 +350,32 @@ ls -la data/
 
 収集したデータでモデルを学習します：
 
+**⚠️ Windows PowerShell使用時の注意**: 複数行コマンドは`\`（バックスラッシュ）の代わりに`` ` ``（バッククォート）を使用、または1行で実行してください。
+
 ```bash
-# 基本的な学習
-python scripts/train_patchtst.py \
-    --data-path data/BTCUSDT_60m.csv \
+# 基本的な学習（Poetry使用時）
+poetry run python scripts/train_patchtst.py \
+    --data-path data/BTCUSDT_1h_clean.csv \
     --epochs 50 \
     --batch-size 64 \
     --experiment-name btc_basic
 
 # ハイパーパラメータ最適化付きの学習
-python scripts/train_patchtst.py \
-    --data-path data/BTCUSDT_60m.csv \
+poetry run python scripts/train_patchtst.py \
+    --data-path data/BTCUSDT_1h_clean.csv \
     --optimize-hyperparams \
     --n-trials 50 \
     --epochs 100 \
     --experiment-name btc_optimized
+```
+
+**PowerShell用（1行実行・推奨）:**
+```powershell
+# 基本的な学習
+poetry run python scripts/train_patchtst.py --data-path data/BTCUSDT_1h_clean.csv --epochs 50 --batch-size 64 --experiment-name btc_basic
+
+# ハイパーパラメータ最適化付きの学習
+poetry run python scripts/train_patchtst.py --data-path data/BTCUSDT_1h_clean.csv --optimize-hyperparams --n-trials 50 --epochs 100 --experiment-name btc_optimized
 ```
 
 ### 3. 推論の実行
@@ -316,18 +383,18 @@ python scripts/train_patchtst.py \
 学習したモデルで予測を行います：
 
 ```bash
-# 単一予測
-python scripts/inference_patchtst.py \
+# 単一予測（Poetry使用時）
+poetry run python scripts/inference_patchtst.py \
     --model-path models/btc_basic/checkpoints/best_model.pth \
     --preprocessor-path models/btc_basic/preprocessor.pkl \
-    --data-path data/BTCUSDT_60m.csv \
+    --data-path data/BTCUSDT_1h_clean.csv \
     --mode single
 
 # ハイブリッド戦略でのバックテスト
-python scripts/inference_patchtst.py \
+poetry run python scripts/inference_patchtst.py \
     --model-path models/btc_basic/checkpoints/best_model.pth \
     --preprocessor-path models/btc_basic/preprocessor.pkl \
-    --data-path data/BTCUSDT_60m.csv \
+    --data-path data/BTCUSDT_1h_clean.csv \
     --mode hybrid \
     --ml-weight 0.7 \
     --rule-weight 0.3 \
@@ -535,7 +602,7 @@ python scripts/train_patchtst.py --data-path data/BTCUSDT_60m.csv
 
 # 高度な学習（ハイパーパラメータ最適化付き）
 python scripts/train_patchtst.py \
-    --data-path data/BTCUSDT_60m.csv \
+    --data-path data/BTCUSDT_1h_clean.csv \
     --optimize-hyperparams \
     --n-trials 100 \
     --epochs 200 \
@@ -558,7 +625,7 @@ python scripts/inference_patchtst.py \
 python scripts/inference_patchtst.py \
     --model-path models/btc_optimized/checkpoints/best_model.pth \
     --preprocessor-path models/btc_optimized/preprocessor.pkl \
-    --data-path data/BTCUSDT_60m.csv \
+    --data-path data/BTCUSDT_1h_clean.csv \
     --mode batch \
     --plot-predictions \
     --save-results
@@ -571,7 +638,7 @@ python scripts/inference_patchtst.py \
 python scripts/inference_patchtst.py \
     --model-path models/btc_optimized/checkpoints/best_model.pth \
     --preprocessor-path models/btc_optimized/preprocessor.pkl \
-    --data-path data/BTCUSDT_60m.csv \
+    --data-path data/BTCUSDT_1h_clean.csv \
     --mode hybrid \
     --ml-weight 0.7 \
     --rule-weight 0.3 \
@@ -718,27 +785,55 @@ services:
 
 ### よくある問題と解決方法
 
-#### 1. CUDA関連エラー
+#### 1. RTX 50シリーズ CUDA非対応エラー
+
+**エラー例**: `NVIDIA GeForce RTX 5060 Ti with CUDA capability sm_120 is not compatible with the current PyTorch installation`
 
 ```bash
-# CUDAバージョンの確認
+# 現在のGPU情報を確認
 nvidia-smi
 
-# PyTorchのCUDA対応確認
-python -c "import torch; print(torch.cuda.is_available())"
+# PyTorchバージョンとCUDA対応確認
+python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: {torch.version.cuda}'); print(f'GPU: {torch.cuda.get_device_name(0)}'); print(f'Compute Cap: {torch.cuda.get_device_capability(0)}')"
+
+# RTX 50シリーズの場合の解決法
+# 現在のPyTorchをアンインストール
+pip uninstall torch torchvision torchaudio -y
+
+# PyTorch nightly CUDA 12.8版をインストール
+pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128
 ```
 
-#### 2. メモリ不足エラー
+#### 2. Poetryコマンドエラー
+
+**エラー例**: `poetry shell` コマンドが使用できない、または仮想環境がアクティベートされない
 
 ```bash
-# バッチサイズを減らして実行
-python scripts/train_patchtst.py --batch-size 16
+# Poetry 2.0以降の新しい方法
+# オプション1: poetry runで実行（推奨）
+poetry run python --version
 
-# または、CPUで実行
-python scripts/train_patchtst.py --device cpu
+# オプション2: 手動アクティベーション
+poetry env activate  # アクティベーションコマンドを表示
+# 表示されたコマンドを実行する
 ```
 
-#### 3. Kafka接続エラー
+#### 3. 一般的なCUDA関連エラー
+
+#### 4. メモリ不足エラー
+
+```bash
+# バッチサイズを減らして実行（Poetry使用時）
+poetry run python scripts/train_patchtst.py --batch-size 16
+
+# または、CPUで実行
+poetry run python scripts/train_patchtst.py --device cpu
+
+# GPUメモリ使用量をモニタリング
+nvidia-smi -l 1
+```
+
+#### 5. Kafka接続エラー
 
 ```bash
 # Kafkaコンテナの状態確認
@@ -748,7 +843,7 @@ docker-compose ps kafka
 docker-compose restart kafka
 ```
 
-#### 4. 依存関係エラー
+#### 6. 依存関係エラー
 
 ```bash
 # 依存関係の再インストール
@@ -759,15 +854,34 @@ poetry env remove python
 poetry install
 ```
 
-#### 5. PyTorch GPU可用性確認
+#### 7. WindowsでのUnicode文字化け問題
+
+**エラー例**: 日本語が文字化けして表示される
+
+```bash
+# Windows環境変数を設定
+set PYTHONIOENCODING=utf-8
+
+# PowerShellの場合
+$env:PYTHONIOENCODING="utf-8"
+
+# 永続的な設定のために.envファイルに追加
+echo PYTHONIOENCODING=utf-8 >> .env
+```
+
+#### 8. PyTorch GPU可用性確認
 
 ```python
 import torch
+import warnings
+warnings.filterwarnings('ignore')  # CUDA警告を非表示
+
 print(f"PyTorch Version: {torch.__version__}")
 print(f"CUDA Available: {torch.cuda.is_available()}")
 print(f"GPU Count: {torch.cuda.device_count()}")
 if torch.cuda.is_available():
     print(f"GPU Name: {torch.cuda.get_device_name(0)}")
+    print(f"Compute Capability: {torch.cuda.get_device_capability(0)}")
     print(f"GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f}GB")
 ```
 

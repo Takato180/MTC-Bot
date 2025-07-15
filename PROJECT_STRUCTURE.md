@@ -95,7 +95,7 @@ MTC-Bot/
 ### 初回セットアップ
 ```bash
 # 1. リポジトリクローン
-git clone <repository-url>
+git clone https://github.com/Takato180/MTC-Bot.git
 cd MTC-Bot
 
 # 2. 環境設定
@@ -104,30 +104,38 @@ cp .env.example .env
 
 # 3. 依存関係インストール
 poetry install
-poetry shell
 
 # 4. GPU環境確認
 nvidia-smi
-python -c "import torch; print(torch.cuda.is_available())"
 
-# 5. Docker起動
+# 5. RTX 50シリーズの場合はPyTorch nightlyをインストール
+# pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128
+
+# 6. GPU動作確認
+poetry run python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else "N/A"}')"
+
+# 7. Docker起動
 docker-compose up -d kafka
 ```
 
 ### データ収集・学習・推論
+
+⚠️ **Poetry 2.0以降注意**: `poetry shell`の代わりに`poetry run`を使用
+
 ```bash
 # データ収集
-python scripts/collect_data.py --symbol BTCUSDT --days 365
+poetry run python scripts/collect_data.py --symbol BTCUSDT --days 365
 
 # モデル学習（マルチコア最適化）
-python scripts/train_patchtst.py \
+poetry run python scripts/train_patchtst.py \
     --data-path data/BTCUSDT_60m.csv \
     --batch-size 128 \
     --num-workers 16 \
-    --epochs 100
+    --epochs 100 \
+    --device cuda  # RTX 50シリーズではナイトリー版必須
 
 # 推論・バックテスト
-python scripts/inference_patchtst.py \
+poetry run python scripts/inference_patchtst.py \
     --model-path models/best_model.pth \
     --mode hybrid \
     --plot-strategy
@@ -135,16 +143,17 @@ python scripts/inference_patchtst.py \
 
 ## 💻 ハードウェア最適化設定
 
-### Intel Core i7 14700F + RTX 4060 Ti向け設定
+### Intel Core i7 14700F + RTX 4060 Ti / RTX 5060 Ti向け設定
 
 ```python
 # 学習設定
 TRAINING_CONFIG = {
-    'batch_size': 128,      # RTX 4060 Ti 16GB最適化
+    'batch_size': 128,      # RTX 4060 Ti / RTX 5060 Ti 16GB最適化
     'num_workers': 16,      # CPUスレッド数フル活用
     'd_model': 256,         # GPU性能に合わせたモデルサイズ
     'n_heads': 16,          # マルチコア最適化
     'n_layers': 8,          # 深いモデルでも高速処理
+    'device': 'cuda',       # RTX 50シリーズはナイトリー版必須
 }
 
 # データローダー設定
@@ -154,6 +163,24 @@ DATALOADER_CONFIG = {
     'prefetch_factor': 4,   # プリフェッチ最適化
 }
 ```
+
+## 🔧 新しい知見と注意事項
+
+### RTX 50シリーズ（Blackwell）対応
+- **CUDA Compute Capability**: sm_120（新しいアーキテクチャ）
+- **PyTorch安定版**: 未対応（sm_90までのみサポート）
+- **解決策**: PyTorch nightly CUDA 12.8版を使用
+- **将来性**: 2025年中に安定版でサポート予定
+
+### Poetry 2.0以降の変更
+- **`poetry shell`**: デフォルトでは利用不可
+- **推奨方法**: `poetry run`でコマンド実行
+- **手動アクティベーション**: `poetry env activate`でコマンド取得
+
+### Windows Unicode問題
+- **問題**: 日本語文字の文字化け
+- **解決策**: `PYTHONIOENCODING=utf-8`環境変数設定
+- **永続設定**: `.env`ファイルに追加
 
 ## 🔒 セキュリティ対策
 
@@ -183,6 +210,7 @@ DATALOADER_CONFIG = {
 - **推論速度**: リアルタイム対応
 - **メモリ使用量**: 効率的なパッチング
 - **精度**: R² > 0.8の高精度予測
+- **RTX 50シリーズ**: ナイトリー版で高速動作確認済み
 
 ## 📝 開発者向け情報
 
