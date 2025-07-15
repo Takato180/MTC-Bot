@@ -276,7 +276,7 @@ class PatchTSTTrainer:
         
         # 学習率スケジューラー
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, mode='min', patience=5, factor=0.5, verbose=True
+            optimizer, mode='min', patience=5, factor=0.5
         )
         
         criterion = nn.MSELoss()
