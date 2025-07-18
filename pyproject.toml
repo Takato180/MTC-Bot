@@ -16,7 +16,7 @@ packages = [
   { include = "web_ui",           from = "src" },
 ]
 
-authors = ["Your Name <you@example.com>"]
+authors = ["Takato Masui <ymasymyt@gmali.com>"]
 
 [tool.poetry.dependencies]
 python               = ">=3.12,<4"
