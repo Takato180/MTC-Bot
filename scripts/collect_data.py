@@ -146,14 +146,19 @@ class DataCollector:
             'start_time', 'open', 'high', 'low', 'close', 'volume', 'turnover'
         ])
         
-        # データ型を変換
-        df['start_time'] = pd.to_datetime(df['start_time'].astype(int), unit='ms')
-        df['open'] = df['open'].astype(float)
-        df['high'] = df['high'].astype(float)
-        df['low'] = df['low'].astype(float)
-        df['close'] = df['close'].astype(float)
-        df['volume'] = df['volume'].astype(float)
-        df['turnover'] = df['turnover'].astype(float)
+        # データ型を変換（オーバーフロー対策）
+        try:
+            df['start_time'] = pd.to_datetime(df['start_time'].astype(np.int64), unit='ms')
+        except (ValueError, OverflowError):
+            # 文字列として数値に変換してからタイムスタンプに変換
+            df['start_time'] = pd.to_datetime(pd.to_numeric(df['start_time'], errors='coerce'), unit='ms')
+        
+        df['open'] = pd.to_numeric(df['open'], errors='coerce')
+        df['high'] = pd.to_numeric(df['high'], errors='coerce')
+        df['low'] = pd.to_numeric(df['low'], errors='coerce')
+        df['close'] = pd.to_numeric(df['close'], errors='coerce')
+        df['volume'] = pd.to_numeric(df['volume'], errors='coerce')
+        df['turnover'] = pd.to_numeric(df['turnover'], errors='coerce')
         
         # シンボル情報を追加
         df['symbol'] = symbol
