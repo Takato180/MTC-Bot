@@ -255,10 +255,30 @@ class CryptoDataLoader:
         """
         df = pd.read_csv(file_path)
         
+        # open_timeがある場合はタイムスタンプ列として処理
+        if 'open_time' in df.columns and timestamp_col not in df.columns:
+            # open_timeが文字列の場合は削除し、startをタイムスタンプとして使用
+            if df['open_time'].dtype == 'object':
+                df = df.drop('open_time', axis=1)
+                # startをミリ秒タイムスタンプとして処理
+                if 'start' in df.columns:
+                    df['timestamp'] = pd.to_datetime(df['start'], unit='ms')
+            else:
+                df['timestamp'] = pd.to_datetime(df['open_time'], unit='ms')
+                df = df.drop('open_time', axis=1)
+        
         # タイムスタンプをdatetimeに変換
         if timestamp_col in df.columns:
-            df[timestamp_col] = pd.to_datetime(df[timestamp_col])
+            if df[timestamp_col].dtype != 'datetime64[ns]':
+                df[timestamp_col] = pd.to_datetime(df[timestamp_col])
             df = df.sort_values(timestamp_col)
+            df = df.set_index(timestamp_col)
+        
+        # 数値列の確保
+        numeric_cols = ['start', 'open', 'high', 'low', 'close', 'volume', 'turnover']
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
         
         return df
     
@@ -340,6 +360,13 @@ def create_data_loaders(data: np.ndarray,
     Returns:
         (訓練ローダー, 検証ローダー, テストローダー)のタプル
     """
+    print(f"データサイズ: {len(data)}")
+    print(f"必要な最小データ数: {seq_len + pred_len}")
+    
+    # データ不足チェック
+    if len(data) < seq_len + pred_len:
+        raise ValueError(f"データが不足しています。必要: {seq_len + pred_len}, 実際: {len(data)}")
+    
     # データローダーインスタンスの作成
     data_loader = CryptoDataLoader()
     
@@ -348,21 +375,38 @@ def create_data_loaders(data: np.ndarray,
         data, test_size, validation_size
     )
     
+    print(f"訓練データ: {len(train_data)}")
+    print(f"検証データ: {len(val_data)}")
+    print(f"テストデータ: {len(test_data)}")
+    
     # データセットの作成
     train_dataset = TimeSeriesDataset(train_data, seq_len, pred_len)
     val_dataset = TimeSeriesDataset(val_data, seq_len, pred_len)
     test_dataset = TimeSeriesDataset(test_data, seq_len, pred_len)
     
+    print(f"訓練系列数: {len(train_dataset)}")
+    print(f"検証系列数: {len(val_dataset)}")
+    print(f"テスト系列数: {len(test_dataset)}")
+    
+    # バッチサイズの調整
+    adjusted_batch_size = min(batch_size, len(train_dataset))
+    val_batch_size = min(batch_size, len(val_dataset)) if len(val_dataset) > 0 else 1
+    test_batch_size = min(batch_size, len(test_dataset)) if len(test_dataset) > 0 else 1
+    
+    print(f"調整後バッチサイズ - 訓練: {adjusted_batch_size}, 検証: {val_batch_size}, テスト: {test_batch_size}")
+    
     # データローダーの作成
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
-    )
+        train_dataset, batch_size=adjusted_batch_size, shuffle=True, num_workers=num_workers
+    ) if len(train_dataset) > 0 else None
+    
     val_loader = DataLoader(
-        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
-    )
+        val_dataset, batch_size=val_batch_size, shuffle=False, num_workers=num_workers
+    ) if len(val_dataset) > 0 else None
+    
     test_loader = DataLoader(
-        test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
-    )
+        test_dataset, batch_size=test_batch_size, shuffle=False, num_workers=num_workers
+    ) if len(test_dataset) > 0 else None
     
     return train_loader, val_loader, test_loader
 
